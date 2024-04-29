@@ -93,7 +93,7 @@ class ThirdScreen: UIViewController {
         
         for i in 0..<9 {
             var card = card_from_deck()
-            var cardButton = createCard(card: card, flag: isFaceDown)
+            var cardButton = createCard(card: card, flag: isFaceDown, tag: i)
             card_piles.append(cardButton)
             if (!isFaceDown) {
                 pile_values[i] = card.value
@@ -175,7 +175,7 @@ class ThirdScreen: UIViewController {
          
     }
     
-    func createCard(card: Card, flag: Bool) -> UIButton {
+    func createCard(card: Card, flag: Bool, tag: Int) -> UIButton {
         let cardButton = UIButton(type: .custom)
         
         let cardImage: UIImage
@@ -188,6 +188,7 @@ class ThirdScreen: UIViewController {
         cardButton.setBackgroundImage(cardImage, for: .normal)
         cardButton.layer.cornerRadius = 6
         cardButton.clipsToBounds = true
+        cardButton.tag = tag
         
         cardButton.addTarget(self, action: #selector(cardTapped), for: .touchUpInside)
         view.addSubview(cardButton)
@@ -198,8 +199,6 @@ class ThirdScreen: UIViewController {
     }
     
     @objc func cardTapped(_ sender: UIButton) {
-            // Handle card tap action
-            print("Card tapped!")
         changeCardButtonStatus(isEnabled: true)
         
         changeGuessButtonStatus(isEnabled: true)
@@ -207,27 +206,52 @@ class ThirdScreen: UIViewController {
         cardSelected = sender
     }
     
-    @objc fund makeGuess(_sender: UIButton) {
+    @objc func makeGuess(_ sender: UIButton) {
+        let cardValue = pile_values[cardSelected.tag]
+        let newCard = card_from_deck()
+        let difference = newCard.value - cardValue
         
-        if (sender == guess_buttons[0]) {
-            
-        }
-        
-        checkGuess()
-        
+        correctGuess(newCard: newCard)
         changeGuessButtonStatus(isEnabled: false)
-        changeCardButtonStatus(isEnabled: true)
-    }
-    
-    func checkGuess() {
-        let card = card_from_deck()
-        var index = 0
-        for i in 0..<card_piles.count {
-            if (cardSelected == card_piles[i]) {
-                index = i
+        Timer.scheduledTimer(withTimeInterval: 0.75, repeats: false) { [self] timer in
+            if (sender == guess_buttons[0]) {
+                if (difference < 0) {
+                    incorrectGuess()
+                } else {
+                    sender.isEnabled = true
+                }
+            } else if (sender == guess_buttons[1]) {
+                if (difference != 0) {
+                    incorrectGuess()
+                } else {
+                    sender.isEnabled = true
+                }
+            } else {
+                if (difference > 0) {
+                    incorrectGuess()
+                } else {
+                    sender.isEnabled = true
+                }
+            }
+            
+            
+            let isGameOver = gameOverCheck()
+            if (isGameOver != 0) {
+                let gameWon = isGameOver == 1
+                endGameScreen(status: gameWon)
             }
         }
-        if (pile_values[index] )
+    }
+    
+    func correctGuess(newCard: Card) {
+        pile_values[cardSelected.tag] = newCard.value
+        card_piles[cardSelected.tag].setBackgroundImage(newCard.picture, for: .normal)
+    }
+    
+    func incorrectGuess() {
+        pile_values[cardSelected.tag] = 0
+        card_piles[cardSelected.tag].isEnabled = false
+        card_piles[cardSelected.tag].setBackgroundImage(UIImage(named: "Card_backside"), for: .normal)
     }
     
     func changeGuessButtonStatus(isEnabled: Bool) {
@@ -238,7 +262,9 @@ class ThirdScreen: UIViewController {
     
     func changeCardButtonStatus(isEnabled: Bool) {
         for i in 0..<card_piles.count {
-            card_piles[i].isEnabled = isEnabled
+            if (pile_values[i] != 0) {
+                card_piles[i].isEnabled = isEnabled
+            }
         }
     }
     
@@ -251,6 +277,55 @@ class ThirdScreen: UIViewController {
             last_card = true
         }
         return card
+    }
+    
+    func gameOverCheck() -> Int {
+        if (num_cards == 0) {
+            return 1
+        }
+        let lost = [0,0,0,0,0,0,0,0,0]
+        if (pile_values.allSatisfy { $0 == 0 }) {
+            return -1
+        }
+        return 0
+    }
+    
+    func endGameScreen (status: Bool) {
+        //true -> win screen
+        let screen = UIView(frame: UIScreen.main.bounds)
+        let message = UILabel(frame: CGRect(x: 0, y: 0, width: 217.0, height: 44.33))
+        message.center = self.view.center
+        message.textAlignment = .center
+        let time_duration: TimeInterval
+        let score = UILabel(frame: CGRect(x: 0, y: 378, width: 217, height: 44.33))
+        score.center.x = self.view.center.x
+        score.textAlignment = .center
+        score.text = "SCORE: \(num_cards)"
+        score.textColor = .cyan
+        
+        if (!status) {
+            message.text = "GAME OVER"
+            message.textColor = .systemRed
+            screen.backgroundColor = .black
+            time_duration = 1.5
+            
+        } else {
+            message.text = "WELL DONE"
+            message.textColor = .green
+            screen.backgroundColor = .white
+            time_duration = 0.5
+        }
+        view.addSubview(screen)
+        view.addSubview(message)
+        view.addSubview(score)
+        message.alpha = 0.0
+        screen.alpha = 0.0
+        score.alpha = 0.0
+        UIView.animate(withDuration: time_duration, animations: {
+            screen.alpha = 1.0
+            message.alpha = 1.0
+            score.alpha = 1.0
+        })
     }
     
 
